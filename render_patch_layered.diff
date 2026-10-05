@@ -1,0 +1,22 @@
+diff -u -r a/render/page.html b/render/page.html
+--- a/render/page.html
++++ b/render/page.html
+@@ -50,6 +50,9 @@
+ 			var render_mode = <%- JSON.stringify(render_mode) %>
+ 			var is_foreground_only = (render_mode === 'foreground');
+ 			if (is_foreground_only) render_mode = 'default';
++			// 'black': bird AND distractors on a black background (used by the layered signal)
++			var is_black_bg = (render_mode === 'black');
++			if (is_black_bg) render_mode = 'default';
+ 
+ 			var camera_distance = <%- JSON.stringify(camera_distance) %>
+ 			var camera_pitch = <%- JSON.stringify(camera_pitch) %>
+@@ -196,7 +199,7 @@
+ 
+ 				scene = new THREE.Scene();
+ 
+-				if (is_foreground_only) {
++				if (is_foreground_only || is_black_bg) {
+ 					scene.background = new THREE.Color( 0x000000 ).convertSRGBToLinear();
+ 				} else if (render_mode == 'default') {
+ 					scene.background = new THREE.Color( 0x555599 )

@@ -1,0 +1,40 @@
+# Full dataset, LAYERED signal: the bird is smoothed on its own, the distractors are pasted on top,
+# then the (smoothed) noise is added.  Put this file in  <project>/configs/  and run:
+#
+#   nohup env RENDER_WAIT_MS=600 python -u generate.py --config configs/full_layered.yaml > full_layered.log 2>&1 &
+#
+# Prerequisite: both render patches applied (render_patch.diff and render_patch_layered.diff).
+
+dataset:
+  name: full_layered_v1       # new name: do not reuse full_v1
+  seed: 0
+  nr_classes: 10
+  train_per_class: 200        # 2000 train scenes
+  test_per_class: 50          # 500 test scenes
+  min_bg_parts: 0             # 0..34 distractor objects per image
+  max_bg_parts: 35
+
+render:
+  size: 256
+  supersample: 2              # rendered at 512 px, averaged down to 256
+  workers: 18                 # parallel renders and blending; 24 threads available
+
+signal:
+  source: layered
+  sigma_smooth_frac: 0.006    # filter H: 0.006 * 256 = 1.5 px, also the width of the *_smooth masks
+
+suppressors:
+  # control: uncorrelated noise (alpha = 1.0 is the noise-free reference, stored once, here)
+  - {type: white, alphas: [0.05, 0.1, 0.2, 0.35, 0.5, 0.75, 1.0]}
+
+  # correlated noise = suppressor variables; three correlation lengths (2 %, 4 %, 8 % of the image size)
+  # alpha = 1.0 is left out: it would be identical to the white / alpha 1.0 images
+  - {type: corr, sigma_frac: 0.02, alphas: &noisy [0.05, 0.1, 0.2, 0.35, 0.5, 0.75]}
+  - {type: corr, sigma_frac: 0.04, alphas: *noisy}
+  - {type: corr, sigma_frac: 0.08, alphas: *noisy}
+
+  # ablation: same noise as corr_s4, but removed inside the bird (no suppressor relationship)
+  - {type: corr, sigma_frac: 0.04, exclude_bird: true, name: corr_s4_nobird, alphas: [0.1, 0.2, 0.5]}
+
+  # 1/f noise
+  - {type: pink, beta: 1.0, alphas: [0.1, 0.2, 0.5]}

@@ -1,0 +1,357 @@
+diff --git a/render/page.html b/render/page.html
+index 8584b2f..49daf62 100644
+--- a/render/page.html
++++ b/render/page.html
+@@ -48,6 +48,11 @@
+ 			import { TextGeometry } from './jsm/geometries/TextGeometry.js';
+ 			
+ 			var render_mode = <%- JSON.stringify(render_mode) %>
++			var is_foreground_only = (render_mode === 'foreground');
++			if (is_foreground_only) render_mode = 'default';
++			// 'black': bird AND distractors on a black background (used by the layered signal)
++			var is_black_bg = (render_mode === 'black');
++			if (is_black_bg) render_mode = 'default';
+ 
+ 			var camera_distance = <%- JSON.stringify(camera_distance) %>
+ 			var camera_pitch = <%- JSON.stringify(camera_pitch) %>
+@@ -87,51 +92,31 @@
+ 			var bg_color = <%- JSON.stringify(bg_color) %>
+ 
+ 
+-			bg_objects = bg_objects.split(',');
+-			bg_objects = bg_objects.map(str => {
+-				return Number(str);
+-			});
+-
+-			bg_radius = bg_radius.split(',');
+-			bg_radius = bg_radius.map(str => {
+-				return Number(str);
+-			});
+-			bg_pitch = bg_pitch.split(',');
+-			bg_pitch = bg_pitch.map(str => {
+-				return Number(str);
+-			});
+-			bg_roll = bg_roll.split(',');
+-			bg_roll = bg_roll.map(str => {
+-				return Number(str);
+-			});
+-
+-			bg_scale_x = bg_scale_x.split(',');
+-			bg_scale_x = bg_scale_x.map(str => {
+-				return Number(str);
+-			});
+-			bg_scale_y = bg_scale_y.split(',');
+-			bg_scale_y = bg_scale_y.map(str => {
+-				return Number(str);
+-			});
+-			bg_scale_z = bg_scale_z.split(',');
+-			bg_scale_z = bg_scale_z.map(str => {
+-				return Number(str);
+-			});
+-
+-			bg_rot_x = bg_rot_x.split(',');
+-			bg_rot_x = bg_rot_x.map(str => {
+-				return Number(str);
+-			});
+-			bg_rot_y = bg_rot_y.split(',');
+-			bg_rot_y = bg_rot_y.map(str => {
+-				return Number(str);
+-			});
+-			bg_rot_z = bg_rot_z.split(',');
+-			bg_rot_z = bg_rot_z.map(str => {
+-				return Number(str);
+-			});
+-
+-			bg_color = bg_color.split(',');
++			if (bg_objects && bg_objects.trim() !== '') {
++				bg_objects = bg_objects.split(',').filter(s => s !== '').map(Number);
++				bg_radius = bg_radius.split(',').filter(s => s !== '').map(Number);
++				bg_pitch = bg_pitch.split(',').filter(s => s !== '').map(Number);
++				bg_roll = bg_roll.split(',').filter(s => s !== '').map(Number);
++				bg_scale_x = bg_scale_x.split(',').filter(s => s !== '').map(Number);
++				bg_scale_y = bg_scale_y.split(',').filter(s => s !== '').map(Number);
++				bg_scale_z = bg_scale_z.split(',').filter(s => s !== '').map(Number);
++				bg_rot_x = bg_rot_x.split(',').filter(s => s !== '').map(Number);
++				bg_rot_y = bg_rot_y.split(',').filter(s => s !== '').map(Number);
++				bg_rot_z = bg_rot_z.split(',').filter(s => s !== '').map(Number);
++				bg_color = bg_color.split(',').filter(s => s !== '');
++			} else {
++				bg_objects = [];
++				bg_radius = [];
++				bg_pitch = [];
++				bg_roll = [];
++				bg_scale_x = [];
++				bg_scale_y = [];
++				bg_scale_z = [];
++				bg_rot_x = [];
++				bg_rot_y = [];
++				bg_rot_z = [];
++				bg_color = [];
++			}
+ 			
+ 
+ 
+@@ -214,14 +199,17 @@
+ 
+ 				scene = new THREE.Scene();
+ 
+-				if (render_mode == 'default') {
++				if (is_foreground_only || is_black_bg) {
++					scene.background = new THREE.Color( 0x000000 ).convertSRGBToLinear();
++				} else if (render_mode == 'default') {
+ 					scene.background = new THREE.Color( 0x555599 )
+ 				} else if (render_mode == 'part_map') {
+ 					scene.background = new THREE.Color( 0x000000 ).convertSRGBToLinear();
+ 				}
+ 				//
+ 
+-				renderer = new THREE.WebGLRenderer( { antialias: true } );
++				// no antialiasing for part maps, so every pixel keeps an exact part colour
++				renderer = new THREE.WebGLRenderer( { antialias: render_mode !== 'part_map' } );
+ 				renderer.setPixelRatio( window.devicePixelRatio );
+ 				renderer.setSize( window.innerWidth, window.innerHeight );
+ 				container.appendChild( renderer.domElement );
+@@ -640,82 +628,84 @@
+ 
+ 
+ 				// background objects
+-				for (var i = 0; i < bg_objects.length; i++) {
+-					var part_bg;
+-					var bg_object = bg_objects[i]
+-					console.log(bg_object)
+-					var geometry;
+-					if (bg_object == 0) {
+-						geometry = new THREE.BoxGeometry( bg_scale_x[i], bg_scale_y[i], bg_scale_z[i] );
+-					} else if (bg_object == 1) {
+-						geometry = new THREE.ConeGeometry( bg_scale_x[i], bg_scale_y[i], bg_scale_z[i] );
+-					} else if (bg_object == 2) {
+-						geometry = new THREE.SphereGeometry( bg_scale_x[i], bg_scale_y[i], bg_scale_z[i] );
+-					} else if (bg_object == 3) {
+-						geometry = new THREE.CylinderGeometry( bg_scale_x[i], bg_scale_y[i], bg_scale_z[i] );
+-					} else if (bg_object == 4) {
+-						geometry = new THREE.CapsuleGeometry( bg_scale_x[i], bg_scale_y[i], bg_scale_z[i] );
+-					}
+-					var diffuseColor;
+-					// basic monochromatic energy preservation
+-					if (render_mode == 'default') {
+-						diffuseColor = new THREE.Color( bg_color[i] );
+-					} else if (render_mode == 'part_map') {
+-						//color_string = "rgb(255, 0, " + i.toString() + ")"
+-						
+-						diffuseColor = new THREE.Color( 0xcccccc + i ).convertSRGBToLinear();
+-					}
+-					var material = new THREE.MeshToonMaterial( {
+-						color: diffuseColor,
+-						gradientMap: gradientMap
+-					} );
+-
+-					var bg_geometry = new THREE.Mesh( geometry, material );
+-
+-					scene.add(bg_geometry)
+-
+-					var pitch=bg_pitch[i]
+-					var roll=bg_roll[i]
+-					var yaw=0
+-
+-					var points = [{x:0,y:0,z:bg_radius[i]}]
+-
+-					var cosa = Math.cos(yaw);
+-					var sina = Math.sin(yaw);
+-
+-					var cosb = Math.cos(pitch);
+-					var sinb = Math.sin(pitch);
+-
+-					var cosc = Math.cos(roll);
+-					var sinc = Math.sin(roll);
+-
+-					var Axx = cosa*cosb;
+-					var Axy = cosa*sinb*sinc - sina*cosc;
+-					var Axz = cosa*sinb*cosc + sina*sinc;
+-
+-					var Ayx = sina*cosb;
+-					var Ayy = sina*sinb*sinc + cosa*cosc;
+-					var Ayz = sina*sinb*cosc - cosa*sinc;
+-
+-					var Azx = -sinb;
+-					var Azy = cosb*sinc;
+-					var Azz = cosb*cosc;
+-
+-					for (var j = 0; j < points.length; j++) {
+-						var px = points[j].x;
+-						var py = points[j].y;
+-						var pz = points[j].z;
+-
+-						points[j].x = Axx*px + Axy*py + Axz*pz;
+-						points[j].y = Ayx*px + Ayy*py + Ayz*pz;
+-						points[j].z = Azx*px + Azy*py + Azz*pz;
++				if (!is_foreground_only) {
++					for (var i = 0; i < bg_objects.length; i++) {
++						var part_bg;
++						var bg_object = bg_objects[i]
++						console.log(bg_object)
++						var geometry;
++						if (bg_object == 0) {
++							geometry = new THREE.BoxGeometry( bg_scale_x[i], bg_scale_y[i], bg_scale_z[i] );
++						} else if (bg_object == 1) {
++							geometry = new THREE.ConeGeometry( bg_scale_x[i], bg_scale_y[i], bg_scale_z[i] );
++						} else if (bg_object == 2) {
++							geometry = new THREE.SphereGeometry( bg_scale_x[i], bg_scale_y[i], bg_scale_z[i] );
++						} else if (bg_object == 3) {
++							geometry = new THREE.CylinderGeometry( bg_scale_x[i], bg_scale_y[i], bg_scale_z[i] );
++						} else if (bg_object == 4) {
++							geometry = new THREE.CapsuleGeometry( bg_scale_x[i], bg_scale_y[i], bg_scale_z[i] );
++						}
++						var diffuseColor;
++						// basic monochromatic energy preservation
++						if (render_mode == 'default') {
++							diffuseColor = new THREE.Color( bg_color[i] );
++						} else if (render_mode == 'part_map') {
++							//color_string = "rgb(255, 0, " + i.toString() + ")"
++							
++							diffuseColor = new THREE.Color( 0xcccccc + i ).convertSRGBToLinear();
++						}
++						var material = new THREE.MeshToonMaterial( {
++							color: diffuseColor,
++							gradientMap: gradientMap
++						} );
++
++						var bg_geometry = new THREE.Mesh( geometry, material );
++
++						scene.add(bg_geometry)
++
++						var pitch=bg_pitch[i]
++						var roll=bg_roll[i]
++						var yaw=0
++
++						var points = [{x:0,y:0,z:bg_radius[i]}]
++
++						var cosa = Math.cos(yaw);
++						var sina = Math.sin(yaw);
++
++						var cosb = Math.cos(pitch);
++						var sinb = Math.sin(pitch);
++
++						var cosc = Math.cos(roll);
++						var sinc = Math.sin(roll);
++
++						var Axx = cosa*cosb;
++						var Axy = cosa*sinb*sinc - sina*cosc;
++						var Axz = cosa*sinb*cosc + sina*sinc;
++
++						var Ayx = sina*cosb;
++						var Ayy = sina*sinb*sinc + cosa*cosc;
++						var Ayz = sina*sinb*cosc - cosa*sinc;
++
++						var Azx = -sinb;
++						var Azy = cosb*sinc;
++						var Azz = cosb*cosc;
++
++						for (var j = 0; j < points.length; j++) {
++							var px = points[j].x;
++							var py = points[j].y;
++							var pz = points[j].z;
++
++							points[j].x = Axx*px + Axy*py + Axz*pz;
++							points[j].y = Ayx*px + Ayy*py + Ayz*pz;
++							points[j].z = Azx*px + Azy*py + Azz*pz;
++						}
++
++						bg_geometry.position.set(points[0].x,points[0].y,points[0].z);
++
++						bg_geometry.rotation.x = bg_rot_x[i];
++						bg_geometry.rotation.y = bg_rot_y[i];
++						bg_geometry.rotation.z = bg_rot_z[i];
+ 					}
+-
+-					bg_geometry.position.set(points[0].x,points[0].y,points[0].z);
+-
+-					bg_geometry.rotation.x = bg_rot_x[i];
+-					bg_geometry.rotation.y = bg_rot_y[i];
+-					bg_geometry.rotation.z = bg_rot_z[i];
+ 				}
+ 
+ 				
+diff --git a/render/server.js b/render/server.js
+index 9ad2066..c025979 100644
+--- a/render/server.js
++++ b/render/server.js
+@@ -8,31 +8,45 @@ app.set('view engine', 'html');
+ var fs = require("fs");
+ const puppeteer = require('puppeteer')
+ 
+-app.get('/render', function (req, res) {
+-
++app.use(express.static(__dirname + '/js/three.js-master/examples'));
++
++const launchOptions = {
++    headless: process.env.VISIBLE ? false : 'new',
++    args: [
++        '--no-sandbox',
++        '--enable-webgl',
++        '--ignore-gpu-blocklist',
++        '--enable-unsafe-swiftshader',
++        '--use-gl=angle',
++        '--use-angle=swiftshader',
++        '--enable-surface-synchronization'
++    ]
++};
++// Only force a Chromium path if the user set one (generate.py sets it from the YAML config)
++if (process.env.PUPPETEER_EXECUTABLE_PATH) {
++    launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
++}
++let browserPromise = puppeteer.launch(launchOptions);
++
++app.get('/render', async function (req, res) {
+     var params = '?' + req.url.split('?')[1];
+-    console.log(params)
+-    ; (async () => {
+-        const browser = await puppeteer.launch( {
+-            headless: ! process.env.VISIBLE,
+-            args: [
+-                '--use-gl=swiftshader',
+-                '--no-sandbox',
+-                '--enable-surface-synchronization'
+-            ]
+-        } )
+-        
+-        const page = await browser.newPage()
+-
+-        await page.setViewport({ width: 1256, height: 1256 })
+-        await page.goto('http://localhost:8081/page' + params)
+-        await new Promise(resolve => setTimeout(resolve, 1000));
+-        x = await page.screenshot({ path: 'my_screenshot.png' , encoding:'base64'})
+-        await browser.close()
+-        res.end( x );
+-        
+-    })()
+-})
++    try {
++        const browser = await browserPromise;
++        const page = await browser.newPage();
++        // size = output side length in px, scale = supersampling factor (screenshot is size*scale px)
++        const size = parseInt(req.query.size) || 512;
++        const scale = parseFloat(req.query.scale) || 1;
++        await page.setViewport({ width: size, height: size, deviceScaleFactor: scale });
++        await page.goto('http://localhost:8081/page' + params, { waitUntil: 'load' });
++        await new Promise(resolve => setTimeout(resolve, parseInt(process.env.RENDER_WAIT_MS) || 200));
++        const x = await page.screenshot({ encoding: 'base64' });
++        await page.close();
++        res.end(x);
++    } catch (err) {
++        console.error('Error rendering:', err);
++        res.status(500).send(err.toString());
++    }
++});
+ 
+ app.get('/page', function (req, res) {
+ 
+@@ -73,9 +87,6 @@ app.get('/page', function (req, res) {
+ 
+     console.log(beak_model)
+     console.log(beak_color)
+-    //res.send("<html> <head>server Response</head><body><h1> This page was render direcly from the server <p>Hello there welcome to my website</p></h1></body></html>");
+-    app.use(express.static(__dirname + '/js/three.js-master/examples'));
+-
+     res.render('./page.html', {render_mode: render_mode, camera_distance: camera_distance, camera_pitch: camera_pitch, camera_roll: camera_roll, light_distance:light_distance, light_pitch: light_pitch, light_roll: light_roll, beak_model: beak_model, beak_color: beak_color, foot_model: foot_model, eye_model: eye_model, tail_model: tail_model, tail_color:tail_color, wing_model: wing_model, wing_color: wing_color, bg_objects: bg_objects, bg_scale_x:bg_scale_x, bg_scale_y:bg_scale_y, bg_scale_z:bg_scale_z, bg_rot_x:bg_rot_x, bg_rot_y:bg_rot_y, bg_rot_z:bg_rot_z, bg_color:bg_color, bg_radius:bg_radius, bg_pitch:bg_pitch, bg_roll:bg_roll});
+ })
+ 

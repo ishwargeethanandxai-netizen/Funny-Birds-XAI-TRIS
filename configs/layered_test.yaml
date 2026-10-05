@@ -1,0 +1,23 @@
+# Quick test of the LAYERED signal: smooth the bird alone, paste the distractors, then add noise.
+#   python generate.py --config configs/layered_test.yaml
+#   python validate.py --config configs/layered_test.yaml
+dataset:
+  name: layered_test
+  nr_classes: 3
+  train_per_class: 6
+  test_per_class: 3
+  max_bg_parts: 8
+
+render:
+  size: 128
+  supersample: 2
+  workers: 2
+
+signal:
+  source: layered
+  sigma_smooth_frac: 0.012     # 0.012 * 128 = 1.5 px
+
+suppressors:
+  - {type: white, alphas: [0.2, 0.6, 1.0]}
+  - {type: corr, sigma_frac: 0.04, alphas: [0.1, 0.3, 0.6, 1.0]}
+  - {type: corr, sigma_frac: 0.04, exclude_bird: true, name: corr_s4_nobird, alphas: [0.3]}
