@@ -9,8 +9,7 @@ venv/
 # Generated datasets (several GB)
 datasets/
 
-# Cloned third-party repos (nested git repos)
-Clones/
+
 
 # Logs and outputs
 *.log
